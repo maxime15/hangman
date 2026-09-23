@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Hangman Twitch</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    font-family: Arial, sans-serif;
+    color: white;
+}
+
+#game {
+    width: 420px;
+    height: 460px;
+    margin: auto;
+    text-align: center;
+    padding-top: 20px;
+}
+
+h1 {
+    margin: 0 0 15px;
+    font-size: 28px;
+}
+
+#hangman {
+    font-family: monospace;
+    white-space: pre;
+    font-size: 24px;
+    line-height: 25px;
+    height: 190px;
+}
+
+#word {
+    font-size: 32px;
+    font-weight: bold;
+    letter-spacing: 7px;
+    margin: 15px 0;
+}
+
+#wrong {
+    font-size: 18px;
+    margin-top: 12px;
+}
+
+#status {
+    margin-top: 15px;
+    font-size: 18px;
+    font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+    <h1>LE PENDU</h1>
+
+    <div id="hangman"></div>
+
+    <div id="word">CHARGEMENT...</div>
+
+    <div id="wrong">
+        Lettres incorrectes :
+        <span id="wrongLetters">—</span>
+    </div>
+
+    <div id="status">
+        Écris une lettre dans le chat !
+    </div>
+
+</div>
+
+<script>
+
+const CHANNEL = "electr0fan";
+
+const WORDS_URL =
+"https://raw.githubusercontent.com/maxime15/hangman/main/words.txt";
+
+let words = [];
+let currentWord = "";
+let guessed = new Set();
+let wrong = new Set();
+let gameOver = false;
+
+const drawings = [
+
+`
+   +---+
+   |   |
+       |
+       |
+       |
+       |
+=========`,
+`
+   +---+
+   |   |
+   O   |
+       |
+       |
+       |
+=========`,
+`
+   +---+
+   |   |
+   O   |
+   |   |
+       |
+       |
+=========`,
+`
+   +---+
+   |   |
+   O   |
+  /|   |
+       |
+       |
+=========`,
+`
+   +---+
+   |   |
+   O   |
+  /|\\  |
+       |
+       |
+=========`,
+`
+   +---+
+   |   |
+   O   |
+  /|\\  |
+  /    |
+       |
+=========`,
+`
+   +---+
+   |   |
+   O   |
+  /|\\  |
+  / \\  |
+       |
+=========`
+];
+
+async function loadWords() {
+
+    try {
+
+        const response = await fetch(
+            WORDS_URL + "?v=" + Date.now()
+        );
+
+        const text = await response.text();
+
+        words = text
+            .split(/\r?\n/)
+            .map(w => w.trim().toUpperCase())
+            .filter(w => /^[A-Z]{5,12}$/.test(w));
+
+        if (!words.length) {
+            throw new Error("Liste vide");
+        }
+
+        startGame();
+
+    } catch (error) {
+
+        document.getElementById("word").textContent =
+            "ERREUR LISTE";
+
+        document.getElementById("status").textContent =
+            "Impossible de charger words.txt";
+
+    }
+}
+
+function startGame() {
+
+    currentWord =
+        words[Math.floor(Math.random() * words.length)];
+
+    guessed.clear();
+    wrong.clear();
+    gameOver = false;
+
+    document.getElementById("status").textContent =
+        "Écris une lettre dans le chat !";
+
+    updateDisplay();
+}
+
+function updateDisplay() {
+
+    const displayed = currentWord
+        .split("")
+        .map(letter =>
+            guessed.has(letter) ? letter : "_"
+        )
+        .join(" ");
+
+    document.getElementById("word").textContent =
+        displayed;
+
+    document.getElementById("wrongLetters").textContent =
+        wrong.size
+            ? [...wrong].join(" ")
+            : "—";
+
+    document.getElementById("hangman").textContent =
+        drawings[wrong.size];
+
+    const won = currentWord
+        .split("")
+        .every(letter => guessed.has(letter));
+
+    if (won && !gameOver) {
+
+        gameOver = true;
+
+        document.getElementById("status").textContent =
+            "🎉 MOT TROUVÉ : " + currentWord;
+
+        setTimeout(startGame, 5000);
+    }
+
+    if (wrong.size >= 6 && !gameOver) {
+
+        gameOver = true;
+
+        document.getElementById("word").textContent =
+            currentWord;
+
+        document.getElementById("status").textContent =
+            "💀 PERDU !";
+
+        setTimeout(startGame, 5000);
+    }
+}
+
+function guess(letter) {
+
+    if (gameOver) return;
+
+    letter = letter.toUpperCase();
+
+    if (!/^[A-Z]$/.test(letter))
+        return;
+
+    if (guessed.has(letter) || wrong.has(letter))
+        return;
+
+    if (currentWord.includes(letter)) {
+        guessed.add(letter);
+    } else {
+        wrong.add(letter);
+    }
+
+    updateDisplay();
+}
+
+
+// -----------------------
+// TWITCH CHAT
+// -----------------------
+
+const socket =
+    new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+
+socket.onopen = () => {
+
+    socket.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
+
+    socket.send(
+        "PASS SCHMOOPIIE"
+    );
+
+    socket.send(
+        "NICK justinfan" +
+        Math.floor(Math.random() * 80000 + 1000)
+    );
+
+    socket.send(
+        "JOIN #" + CHANNEL.toLowerCase()
+    );
+};
+
+socket.onmessage = event => {
+
+    const lines = event.data.split("\r\n");
+
+    for (const line of lines) {
+
+        if (line.startsWith("PING")) {
+            socket.send("PONG :tmi.twitch.tv");
+            continue;
+        }
+
+        const match =
+            line.match(/PRIVMSG #[^ ]+ :(.+)$/);
+
+        if (!match)
+            continue;
+
+        const message =
+            match[1].trim().toUpperCase();
+
+        // Seulement UNE lettre
+        if (/^[A-Z]$/.test(message)) {
+            guess(message);
+        }
+    }
+};
+
+loadWords();
+
+</script>
+
+</body>
+</html>
