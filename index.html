@@ -7,64 +7,83 @@
 <title>Pendu Twitch</title>
 
 <style>
-    * {
-        box-sizing: border-box;
-    }
+* {
+    box-sizing: border-box;
+}
 
-    html, body {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        font-family: Arial, Helvetica, sans-serif;
-        background: #222;
-        color: white;
-    }
+html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    font-family: Arial, Helvetica, sans-serif;
+    color: white;
+}
 
-    #game {
-        width: 420px;
-        height: 460px;
-        margin: 0 auto;
-        padding-top: 15px;
-        text-align: center;
-    }
+#game {
+    width: 420px;
+    height: 460px;
+    margin: 0 auto;
+    padding: 12px;
+    text-align: center;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+}
 
-    h1 {
-        margin: 0 0 10px 0;
-        font-size: 28px;
-    }
+h1 {
+    margin: 0 0 5px 0;
+    font-size: 28px;
+}
 
-    #hangman {
-        height: 190px;
-        white-space: pre;
-        font-family: monospace;
-        font-size: 24px;
-        line-height: 25px;
-    }
+#hangman {
+    height: 180px;
+    white-space: pre;
+    font-family: monospace;
+    font-size: 23px;
+    line-height: 24px;
+}
 
-    #word {
-        margin: 10px 0 15px 0;
-        font-size: 30px;
-        font-weight: bold;
-        letter-spacing: 5px;
-    }
+#word {
+    margin: 5px 0 12px 0;
+    font-size: 30px;
+    font-weight: bold;
+    letter-spacing: 5px;
+}
 
-    #wrong {
-        font-size: 17px;
-        margin-top: 10px;
-    }
+#wrong {
+    font-size: 16px;
+    margin-top: 8px;
+}
 
-    #status {
-        margin-top: 15px;
-        font-size: 18px;
-        font-weight: bold;
-    }
+#lastGuess {
+    margin-top: 10px;
+    font-size: 17px;
+    min-height: 22px;
+}
 
-    #connection {
-        margin-top: 10px;
-        font-size: 13px;
-        opacity: 0.7;
-    }
+#status {
+    margin-top: 10px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+#connection {
+    margin-top: 8px;
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+.username {
+    font-weight: bold;
+}
+
+.good {
+    font-weight: bold;
+}
+
+.bad {
+    opacity: 0.85;
+}
 </style>
 </head>
 
@@ -85,8 +104,10 @@
         <span id="wrongLetters">—</span>
     </div>
 
+    <div id="lastGuess"></div>
+
     <div id="status">
-        Chargement de la liste...
+        Chargement...
     </div>
 
     <div id="connection">
@@ -94,6 +115,7 @@
     </div>
 
 </div>
+
 
 <script>
 
@@ -111,9 +133,9 @@ let wrongLetters = new Set();
 let gameOver = false;
 
 
-// =========================
-// DESSINS DU PENDU
-// =========================
+// ==========================
+// PENDU
+// ==========================
 
 const drawings = [
 
@@ -125,7 +147,6 @@ const drawings = [
        |
        |
 =========`,
-
 `
    +---+
    |   |
@@ -134,7 +155,6 @@ const drawings = [
        |
        |
 =========`,
-
 `
    +---+
    |   |
@@ -143,7 +163,6 @@ const drawings = [
        |
        |
 =========`,
-
 `
    +---+
    |   |
@@ -152,7 +171,6 @@ const drawings = [
        |
        |
 =========`,
-
 `
    +---+
    |   |
@@ -161,7 +179,6 @@ const drawings = [
        |
        |
 =========`,
-
 `
    +---+
    |   |
@@ -170,7 +187,6 @@ const drawings = [
   /    |
        |
 =========`,
-
 `
    +---+
    |   |
@@ -182,9 +198,9 @@ const drawings = [
 ];
 
 
-// =========================
+// ==========================
 // CHARGEMENT DES MOTS
-// =========================
+// ==========================
 
 async function loadWords() {
 
@@ -195,7 +211,7 @@ async function loadWords() {
         );
 
         if (!response.ok) {
-            throw new Error("Erreur HTTP");
+            throw new Error("Impossible de charger words.txt");
         }
 
         const text = await response.text();
@@ -205,32 +221,26 @@ async function loadWords() {
             .map(word => word.trim().toUpperCase())
             .filter(word => /^[A-Z]{5,12}$/.test(word));
 
-        if (words.length === 0) {
+        if (!words.length) {
             throw new Error("Liste vide");
         }
 
-        console.log("Mots chargés :", words);
-
         startGame();
 
-    }
-
-    catch (error) {
-
-        console.error(error);
+    } catch (error) {
 
         document.getElementById("word").textContent =
             "ERREUR";
 
         document.getElementById("status").textContent =
-            "Impossible de charger words.txt";
+            "Impossible de charger la liste";
     }
 }
 
 
-// =========================
+// ==========================
 // NOUVELLE PARTIE
-// =========================
+// ==========================
 
 function startGame() {
 
@@ -242,6 +252,8 @@ function startGame() {
 
     gameOver = false;
 
+    document.getElementById("lastGuess").textContent = "";
+
     document.getElementById("status").textContent =
         "Écris UNE lettre dans le chat !";
 
@@ -249,9 +261,9 @@ function startGame() {
 }
 
 
-// =========================
+// ==========================
 // AFFICHAGE
-// =========================
+// ==========================
 
 function updateDisplay() {
 
@@ -274,53 +286,14 @@ function updateDisplay() {
 
     document.getElementById("hangman").textContent =
         drawings[wrongLetters.size];
-
-
-    // VICTOIRE
-
-    const victory =
-        currentWord
-            .split("")
-            .every(letter =>
-                guessedLetters.has(letter)
-            );
-
-    if (victory && !gameOver) {
-
-        gameOver = true;
-
-        document.getElementById("word").textContent =
-            currentWord;
-
-        document.getElementById("status").textContent =
-            "🎉 MOT TROUVÉ !";
-
-        setTimeout(startGame, 5000);
-    }
-
-
-    // DÉFAITE
-
-    if (wrongLetters.size >= 6 && !gameOver) {
-
-        gameOver = true;
-
-        document.getElementById("word").textContent =
-            currentWord;
-
-        document.getElementById("status").textContent =
-            "💀 PERDU ! Le mot était " + currentWord;
-
-        setTimeout(startGame, 5000);
-    }
 }
 
 
-// =========================
-// PROPOSITION D'UNE LETTRE
-// =========================
+// ==========================
+// PROPOSITION
+// ==========================
 
-function guessLetter(letter) {
+function guessLetter(letter, username) {
 
     if (gameOver) {
         return;
@@ -332,6 +305,7 @@ function guessLetter(letter) {
         return;
     }
 
+    // Lettre déjà proposée
     if (
         guessedLetters.has(letter) ||
         wrongLetters.has(letter)
@@ -339,22 +313,140 @@ function guessLetter(letter) {
         return;
     }
 
+
+    // BONNE LETTRE
+
     if (currentWord.includes(letter)) {
 
         guessedLetters.add(letter);
 
-    } else {
+        document.getElementById("lastGuess").innerHTML =
+            `<span class="good">✓ ${letter}</span> trouvé par ` +
+            `<span class="username">${escapeHTML(username)}</span>`;
 
-        wrongLetters.add(letter);
     }
 
+
+    // MAUVAISE LETTRE
+
+    else {
+
+        wrongLetters.add(letter);
+
+        document.getElementById("lastGuess").innerHTML =
+            `<span class="bad">✗ ${letter}</span> proposé par ` +
+            `<span class="username">${escapeHTML(username)}</span>`;
+    }
+
+
     updateDisplay();
+
+
+    // ==========================
+    // VICTOIRE
+    // ==========================
+
+    const victory =
+        currentWord
+            .split("")
+            .every(letter =>
+                guessedLetters.has(letter)
+            );
+
+    if (victory) {
+
+        gameOver = true;
+
+        document.getElementById("word").textContent =
+            currentWord;
+
+        document.getElementById("status").innerHTML =
+            `🎉 MOT TROUVÉ !<br>` +
+            `🏆 <span class="username">${escapeHTML(username)}</span>`;
+
+        setTimeout(startGame, 6000);
+
+        return;
+    }
+
+
+    // ==========================
+    // DÉFAITE
+    // ==========================
+
+    if (wrongLetters.size >= 6) {
+
+        gameOver = true;
+
+        document.getElementById("word").textContent =
+            currentWord;
+
+        document.getElementById("status").innerHTML =
+            `💀 PERDU !<br>` +
+            `Le mot était <strong>${currentWord}</strong>`;
+
+        setTimeout(startGame, 6000);
+    }
 }
 
 
-// =========================
+// ==========================
+// SÉCURITÉ AFFICHAGE PSEUDO
+// ==========================
+
+function escapeHTML(text) {
+
+    const div = document.createElement("div");
+
+    div.textContent = text;
+
+    return div.innerHTML;
+}
+
+
+// ==========================
+// RÉCUPÉRATION TAGS TWITCH
+// ==========================
+
+function parseTags(line) {
+
+    const tags = {};
+
+    if (!line.startsWith("@")) {
+        return tags;
+    }
+
+    const tagSection =
+        line.substring(1, line.indexOf(" "));
+
+    const tagPairs =
+        tagSection.split(";");
+
+    for (const pair of tagPairs) {
+
+        const separator =
+            pair.indexOf("=");
+
+        if (separator === -1) {
+            continue;
+        }
+
+        const key =
+            pair.substring(0, separator);
+
+        const value =
+            pair.substring(separator + 1);
+
+        tags[key] = value;
+    }
+
+    return tags;
+}
+
+
+// ==========================
 // TWITCH CHAT
-// =========================
+// ==========================
 
 const socket =
     new WebSocket(
@@ -368,6 +460,8 @@ socket.addEventListener("open", function () {
         "justinfan" +
         Math.floor(Math.random() * 80000 + 1000);
 
+    // IMPORTANT :
+    // permet de recevoir display-name
     socket.send(
         "CAP REQ :twitch.tv/tags twitch.tv/commands"
     );
@@ -397,7 +491,7 @@ socket.addEventListener("message", function (event) {
     for (const line of lines) {
 
 
-        // PING TWITCH
+        // PING
 
         if (line.startsWith("PING")) {
 
@@ -409,7 +503,7 @@ socket.addEventListener("message", function (event) {
         }
 
 
-        // CONFIRMATION CONNEXION CHANNEL
+        // CONNEXION AU CHANNEL
 
         if (
             line.includes(
@@ -419,33 +513,67 @@ socket.addEventListener("message", function (event) {
 
             document.getElementById("connection").textContent =
                 "✓ Chat Twitch connecté";
-
         }
 
 
-        // MESSAGE DU CHAT
+        // MESSAGE CHAT
 
-        const match =
+        if (!line.includes("PRIVMSG")) {
+            continue;
+        }
+
+
+        const tags =
+            parseTags(line);
+
+
+        // PSEUDO TWITCH
+
+        let username =
+            tags["display-name"];
+
+
+        // Si display-name indisponible,
+        // récupération depuis le message IRC
+
+        if (!username) {
+
+            const userMatch =
+                line.match(/:([^!]+)!/);
+
+            username =
+                userMatch
+                    ? userMatch[1]
+                    : "Viewer";
+        }
+
+
+        // CONTENU DU MESSAGE
+
+        const messageMatch =
             line.match(
                 /PRIVMSG #[^ ]+ :(.+)$/
             );
 
-        if (!match) {
+        if (!messageMatch) {
             continue;
         }
 
+
         const message =
-            match[1]
+            messageMatch[1]
                 .trim()
                 .toUpperCase();
 
 
-        // ON ACCEPTE UNIQUEMENT
-        // UNE SEULE LETTRE
+        // UNIQUEMENT UNE LETTRE
 
         if (/^[A-Z]$/.test(message)) {
 
-            guessLetter(message);
+            guessLetter(
+                message,
+                username
+            );
         }
     }
 });
@@ -465,9 +593,9 @@ socket.addEventListener("close", function () {
 });
 
 
-// =========================
+// ==========================
 // LANCEMENT
-// =========================
+// ==========================
 
 loadWords();
 
